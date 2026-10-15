@@ -1,42 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CR Remover – Copyright Fingerprint Transformer</title>
-  <link rel="stylesheet" href="/style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CR Remover - Copyright Fingerprint Transformer</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>CR Remover</h1>
-    <p>Transform videos to reduce copyright fingerprinting</p>
-  </header>
+    <header>
+        <h1>CR Remover</h1>
+        <p>Transform videos to bypass copyright claims and Content ID matching</p>
+    </header>
 
-  <main>
-    <section class="upload-section">
-      <div class="drop-zone" id="dropZone">
-        <input type="file" id="fileInput" accept="video/*" hidden />
-        <p>Drag & drop a video here, or click to browse</p>
-        <p class="hint">MP4, MOV, AVI, WebM, MKV (up to 2 GB)</p>
-      </div>
+    <main>
+        <section class="upload-section">
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" accept="video/*" hidden />
+                <div class="drop-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <h2>Drop Video Here</h2>
+                    <p>Or click to browse (MP4, MOV, MKV, AVI, WebM)</p>
+                    <button id="browseBtn">Browse Files</button>
+                </div>
+            </div>
 
-      <div class="controls" id="controls" hidden>
-        <label>
-          Speed (0.98–1.04)
-          <input type="number" id="speed" step="0.01" min="0.98" max="1.04" placeholder="Auto" />
-        </label>
-        <label>
-          Pitch (-1 to +1 semitone)
-          <input type="number" id="pitch" step="1" min="-1" max="1" placeholder="Auto" />
-        </label>
-        <label>
-          Brightness (-0.03 to +0.03)
-          <input type="number" id="brightness" step="0.01" min="-0.03" max="0.03" placeholder="Auto" />
-        </label>
-        <label>
-          Contrast (-0.03 to +0.03)
-          <input type="number" id="contrast" step="0.01" min="-0.03" max="0.03" placeholder="Auto" />
-        </label>
-        <label>
-          Saturation (-0.03 to +0.03)
-          <input type="number" id="saturation" step
+            <div class="file-info" id="fileInfo" hidden>
+                <h3 id="fileName">Video Name</h3>
+                <p id="fileSize">Size</p>
+                <button id="removeFile">Remove</button>
+            </div>
+
+            <div class="progress-container" id="progressContainer" hidden>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">Processing... 0%</p>
+            </div>
+        </section>
+
+        <section class="result-section" id="resultSection" hidden>
+            <h2>Processing Complete!</h2>
+            <div class="report-card">
+                <h3>Transformation Report</h3>
+                <pre id="reportPre"></pre>
+            </div>
+            <a id="downloadLink" class="download-btn" download>Download Transformed Video</a>
+        </section>
+
+        <section class="error-section" id="errorSection" hidden>
+            <h2>Processing Failed</h2>
+            <p id="errorMessage"></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>CR Remover &copy; 2024 | Powered by ffmpeg</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
