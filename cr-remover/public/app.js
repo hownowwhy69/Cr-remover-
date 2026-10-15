@@ -248,4 +248,4 @@ const originalHandleFileSelect = handleFileSelect;
 handleFileSelect = function(file) {
    originalHandleFileSelect(file);
    processVideo();
-    }
+}
