@@ -1,65 +1,102 @@
+// server.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { transformVideo } = require('./lib/transformer');
+const { transformVideo } = require('./lib/pipeline');
+const { writeReport, readReport } = require('./lib/report');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ensure data directories exist
-const dataDirs = ['uploads', 'outputs', 'logs'];
-dataDirs.forEach(dir => {
-  if (!fs.existsSync(`data/${dir}`)) fs.mkdirSync(`data/${dir}`, { recursive: true });
-});
+const DATA_DIR = path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const OUTPUTS_DIR = path.join(DATA_DIR, 'outputs');
+const REPORTS_DIR = path.join(DATA_DIR, 'reports');
 
+// Ensure dirs exist
+for (const dir of [DATA_DIR, UPLOADS_DIR, OUTPUTS_DIR, REPORTS_DIR]) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+// Multer config
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'data/uploads/'),
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => cb(null, `upload_${uuidv4()}_${file.originalname}`)
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 * 1024 }, // 5GB limit
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB
   fileFilter: (req, file, cb) => {
-    const allowed = /mp4|mov|mkv|avi|webm/;
-    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowed.test(file.mimetype);
-    if (extname && mimetype) cb(null, true);
-    else cb(new Error('Unsupported file format'));
+    const okTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska'];
+    if (okTypes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Unsupported file type'));
   }
 });
 
+// Middleware
 app.use(express.json());
-app.use(express.static('public'));
-app.use('/outputs', express.static('data/outputs'));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// Main API Endpoint
-app.post('/api/process', upload.single('video'), async (req, res) => {
-  const jobId = uuidv4();
-  const inputPath = req.file.path;
-  const outputPath = path.join('data/outputs', `${jobId}.mp4`);
-  
+// Routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Upload + transform
+app.post('/api/transform', upload.single('video'), async (req, res) => {
   try {
-    console.log(`Job ${jobId} started for ${req.file.originalname}`);
-    
-    // Execute the transformation pipeline
-    const report = await transformVideo({ inputPath, outputPath, jobId });
-    
-    console.log(`Job ${jobId} completed successfully`);
-    
-    res.json({
-      success: true,
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const inputPath = req.file.path;
+    const jobId = uuidv4();
+    const outputPath = path.join(OUTPUTS_DIR, `${jobId}.mp4`);
+    const reportPath = path.join(REPORTS_DIR, `${jobId}.json`);
+
+    const params = {
+      inputPath,
+      outputPath,
+      reportPath,
+      jobId,
+      // Optional overrides
+      speed: req.body.speed ? parseFloat(req.body.speed) : undefined,
+      pitch: req.body.pitch ? parseInt(req.body.pitch, 10) : undefined,
+      brightness: req.body.brightness ? parseFloat(req.body.brightness) : undefined,
+      contrast: req.body.contrast ? parseFloat(req.body.contrast) : undefined,
+      saturation: req.body.saturation ? parseFloat(req.body.saturation) : undefined,
+      scale: req.body.scale ? parseFloat(req.body.scale) : undefined,
+      bitrate: req.body.bitrate ? parseInt(req.body.bitrate, 10) : undefined,
+      watermark: req.body.watermark || undefined,
+      seed: req.body.seed || undefined
+    };
+
+    const report = await transformVideo(params);
+    await writeReport(reportPath, report);
+
+    return res.json({
       jobId,
       downloadUrl: `/outputs/${path.basename(outputPath)}`,
       report
     });
-
-  } catch (error) {
-    console.error(`Job ${jobId} failed:`, error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    console.error('Transform error:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => console.log(`CR Remover running at http://localhost:${PORT}`));
+// Serve outputs
+app.use('/outputs', express.static(OUTPUTS_DIR));
+
+// Get report
+app.get('/api/report/:jobId', (req, res) => {
+  const reportPath = path.join(REPORTS_DIR, `${req.params.jobId}.json`);
+  readReport(reportPath)
+    .then(report => res.json(report))
+    .catch(() => res.status(404).json({ error: 'Report not found' }));
+});
+
+app.listen(PORT, () => {
+  console.log(`CR Remover running at http://localhost:${PORT}`);
+});
